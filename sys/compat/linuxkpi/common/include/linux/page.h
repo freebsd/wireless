@@ -48,7 +48,20 @@ typedef unsigned long linux_pmd_t;
 typedef unsigned long linux_pgd_t;
 typedef unsigned long pgprot_t;
 
+#ifdef __not_yet__
+#define	PAGE_IS_LKPI_PAGE
+#endif
+#ifdef PAGE_IS_LKPI_PAGE
+struct page {
+	/* Native FreeBSD vm_page. */
+	struct vm_page	*vm_page;
+
+	/* Linux fields. */
+	struct page_pool *pp;
+};
+#else
 #define page	vm_page
+#endif
 
 #define	LINUXKPI_PROT_VALID (1 << 3)
 #define	LINUXKPI_CACHE_MODE_SHIFT 4
@@ -72,13 +85,29 @@ pgprot2cachemode(pgprot_t prot)
 		return (VM_MEMATTR_DEFAULT);
 }
 
+#ifdef PAGE_IS_LKPI_PAGE
+struct page *lkpi_vm_page_to_page(struct vm_page *);	/* Internal */
+struct page *linuxkpi_virt_to_page(const void *);
+struct page *linuxkpi_pfn_to_page(unsigned long);
+
+#define	virt_to_page(_v)	linuxkpi_virt_to_page(_v)
+#define	page_to_pfn(_page)	(VM_PAGE_TO_PHYS((_page)->vm_page) >> PAGE_SHIFT)
+#define	pfn_to_page(_pfn)	linuxkpi_pfn_to_page(_pfn)
+#define	page_to_phys(_page)	VM_PAGE_TO_PHYS((_page)->vm_page)
+#else
 #define	virt_to_page(x)		PHYS_TO_VM_PAGE(vtophys(x))
 #define	page_to_pfn(pp)		(VM_PAGE_TO_PHYS(pp) >> PAGE_SHIFT)
 #define	pfn_to_page(pfn)	(PHYS_TO_VM_PAGE((pfn) << PAGE_SHIFT))
-#define	nth_page(page,n)	pfn_to_page(page_to_pfn(page) + (n))
 #define	page_to_phys(page)	VM_PAGE_TO_PHYS(page)
+#endif
+#define	nth_page(page,n)	pfn_to_page(page_to_pfn(page) + (n))
 
-#define	clear_page(page)		memset(page, 0, PAGE_SIZE)
+/*
+ * clear_page() is also called on kmem allocated pages.
+ * [2023-07-31] mthca(4) is the only in-tree consumer.
+ */
+#define	clear_page(page)	memset(page, 0, PAGE_SIZE)
+
 #define	pgprot_noncached(prot)		\
 	(((prot) & VM_PROT_ALL) | cachemode2protval(VM_MEMATTR_UNCACHEABLE))
 #ifdef VM_MEMATTR_WRITE_COMBINING

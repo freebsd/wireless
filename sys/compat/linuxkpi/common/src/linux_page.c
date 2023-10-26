@@ -85,14 +85,21 @@ si_meminfo(struct sysinfo *si)
 void *
 linux_page_address(struct page *page)
 {
+	struct vm_page	*m;
 
-	if (page->object != kernel_object) {
+#ifdef PAGE_IS_LKPI_PAGE
+	m = page->vm_page;
+#else
+	m = page;
+#endif
+
+	if (m->object != kernel_object) {
 		return (PMAP_HAS_DMAP ?
 		    ((void *)(uintptr_t)PHYS_TO_DMAP(page_to_phys(page))) :
 		    NULL);
 	}
 	return ((void *)(uintptr_t)(VM_MIN_KERNEL_ADDRESS +
-	    IDX_TO_OFF(page->pindex)));
+	    IDX_TO_OFF(m->pindex)));
 }
 
 struct page *
@@ -101,22 +108,23 @@ linux_alloc_pages(gfp_t flags, unsigned int order)
 	struct page *page;
 
 	if (PMAP_HAS_DMAP) {
+		struct vm_page *m;
 		unsigned long npages = 1UL << order;
 		int req = VM_ALLOC_WIRED;
 
 		if ((flags & M_ZERO) != 0)
 			req |= VM_ALLOC_ZERO;
 		if (order == 0 && (flags & GFP_DMA32) == 0) {
-			page = vm_page_alloc_noobj(req);
-			if (page == NULL)
+			m = vm_page_alloc_noobj(req);
+			if (m == NULL)
 				return (NULL);
 		} else {
 			vm_paddr_t pmax = (flags & GFP_DMA32) ?
 			    BUS_SPACE_MAXADDR_32BIT : BUS_SPACE_MAXADDR;
 		retry:
-			page = vm_page_alloc_noobj_contig(req, npages, 0, pmax,
+			m = vm_page_alloc_noobj_contig(req, npages, 0, pmax,
 			    PAGE_SIZE, 0, VM_MEMATTR_DEFAULT);
-			if (page == NULL) {
+			if (m == NULL) {
 				if (flags & M_WAITOK) {
 					int err = vm_page_reclaim_contig(req,
 					    npages, 0, pmax, PAGE_SIZE, 0);
@@ -130,6 +138,11 @@ linux_alloc_pages(gfp_t flags, unsigned int order)
 				return (NULL);
 			}
 		}
+#ifdef PAGE_IS_LKPI_PAGE
+		page = lkpi_vm_page_to_page(m);
+#else
+		page = m;
+#endif
 	} else {
 		vm_offset_t vaddr;
 
@@ -158,11 +171,17 @@ void
 linux_free_pages(struct page *page, unsigned int order)
 {
 	if (PMAP_HAS_DMAP) {
+		struct vm_page	*m;
 		unsigned long npages = 1UL << order;
 		unsigned long x;
 
+#ifdef PAGE_IS_LKPI_PAGE
+		m = page->vm_page;
+#else
+		m = page;
+#endif
 		for (x = 0; x != npages; x++) {
-			vm_page_t pgo = page + x;
+			vm_page_t pgo = m + x;
 
 			if (vm_page_unwire_noq(pgo))
 				vm_page_free(pgo);
@@ -211,13 +230,26 @@ static int
 linux_get_user_pages_internal(vm_map_t map, unsigned long start, int nr_pages,
     int write, struct page **pages)
 {
+	struct vm_page **mpp;
 	vm_prot_t prot;
 	size_t len;
-	int count;
+	int count, i;
+
+	mpp = malloc(sizeof(*mpp) * nr_pages, M_KMALLOC, M_NOWAIT|M_ZERO);
+	if (mpp == NULL)
+		return (-ENOMEM);
+
+	for (i = 0; i < nr_pages; i++)
+#ifdef PAGE_IS_LKPI_PAGE
+		mpp[i] = pages[i]->vm_page;
+#else
+		mpp[i] = pages[i];
+#endif
 
 	prot = write ? (VM_PROT_READ | VM_PROT_WRITE) : VM_PROT_READ;
 	len = ptoa((vm_offset_t)nr_pages);
-	count = vm_fault_quick_hold_pages(map, start, len, prot, pages, nr_pages);
+	count = vm_fault_quick_hold_pages(map, start, len, prot, mpp, nr_pages);
+	free(mpp, M_KMALLOC);
 	return (count == -1 ? -EFAULT : nr_pages);
 }
 
@@ -225,12 +257,13 @@ int
 __get_user_pages_fast(unsigned long start, int nr_pages, int write,
     struct page **pages)
 {
+	struct vm_page **mpp;
 	vm_map_t map;
 	vm_page_t *mp;
 	vm_offset_t va;
 	vm_offset_t end;
 	vm_prot_t prot;
-	int count;
+	int count, i;
 
 	if (nr_pages == 0 || in_interrupt())
 		return (0);
@@ -241,7 +274,19 @@ __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	if (!vm_map_range_valid(map, start, end))
 		return (-EINVAL);
 	prot = write ? (VM_PROT_READ | VM_PROT_WRITE) : VM_PROT_READ;
-	for (count = 0, mp = pages, va = start; va < end;
+
+	mpp = malloc(sizeof(*mpp) * nr_pages, M_KMALLOC, M_NOWAIT|M_ZERO);
+	if (mpp == NULL)
+		return (-ENOMEM);
+
+	for (i = 0; i < nr_pages; i++)
+#ifdef PAGE_IS_LKPI_PAGE
+		mpp[i] = pages[i]->vm_page;
+#else
+		mpp[i] = pages[i];
+#endif
+	mp = mpp;
+	for (count = 0, va = start; va < end;
 	    mp++, va += PAGE_SIZE, count++) {
 		*mp = pmap_extract_and_hold(map->pmap, va, prot);
 		if (*mp == NULL)
@@ -261,6 +306,8 @@ __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 			vm_page_dirty(*mp);
 		}
 	}
+	free(mpp, M_KMALLOC);
+
 	return (count);
 }
 
@@ -517,7 +564,7 @@ void *
 linuxkpi_page_frag_alloc(struct page_frag_cache *pfc,
     size_t fragsz, gfp_t gfp)
 {
-	vm_page_t pages;
+	struct page *pages;
 
 	if (fragsz == 0)
 		return (NULL);
@@ -539,7 +586,7 @@ linuxkpi_page_frag_alloc(struct page_frag_cache *pfc,
 void
 linuxkpi_page_frag_free(void *addr)
 {
-	vm_page_t page;
+	struct page *page;
 
 	page = virt_to_page(addr);
 	linux_free_pages(page, 0);
@@ -551,3 +598,67 @@ linuxkpi__page_frag_cache_drain(struct page *page, size_t count __unused)
 
 	linux_free_pages(page, 0);
 }
+
+#ifdef PAGE_IS_LKPI_PAGE
+/* -------------------------------------------------------------------------- */
+/*
+ * Mimic vm_page_array[] and similar logic dependent on PMAP_HAS_PAGE_ARRAY and
+ * VM_PHYSSEG_SPARSE or VM_PHYSSEG_DENSE for struct page essentially creating a
+ * shadow structure to keep Linux KPI specific information along native pages.
+ */
+
+static MALLOC_DEFINE(M_LKPI_PAGE, "lkpipage", "LinuxKPI page array");
+static struct page *lkpi_page_array;
+
+struct page *
+lkpi_vm_page_to_page(struct vm_page *m)
+{
+	struct vm_phys_seg *seg;
+	vm_paddr_t pa;
+
+	pa = VM_PAGE_TO_PHYS(m);
+	seg = &vm_phys_segs[m->segind];
+	return (&lkpi_page_array[atop(pa - seg->start)]);
+}
+
+struct page *
+linuxkpi_virt_to_page(const void *v)
+{
+	struct vm_page *m;
+
+	m = PHYS_TO_VM_PAGE(vtophys(v));
+	return (lkpi_vm_page_to_page(m));
+}
+
+/* pfn (page-frame number) to page. */
+struct page *
+linuxkpi_pfn_to_page(unsigned long pfn)
+{
+	struct vm_page *m;
+
+	m = PHYS_TO_VM_PAGE((pfn) << PAGE_SHIFT);
+	return (lkpi_vm_page_to_page(m));
+}
+
+static void
+lkpi_page_init(void *arg)
+{
+	lkpi_page_array = malloc(vm_page_array_size * sizeof(struct page),
+	    M_LKPI_PAGE, M_WAITOK | M_ZERO);
+}
+SYSINIT(lkpi_page_init, SI_SUB_VM, SI_ORDER_ANY, lkpi_page_init, NULL);
+
+static void
+lkpi_page_uninit(void *arg)
+{
+	free(lkpi_page_array, M_LKPI_PAGE);
+}
+SYSUNINIT(lkpi_page_uninit, SI_SUB_VM, SI_ORDER_ANY, lkpi_page_uninit, NULL);
+#endif
+
+static void
+lkpi_page_init_BZ(void *arg)
+{
+	printf("XXX-BZ: %s:%d: vm_page_array_size %ju\n", __func__, __LINE__, vm_page_array_size);
+}
+SYSINIT(lkpi_page_init_BZ, SI_SUB_VM, SI_ORDER_ANY, lkpi_page_init_BZ, NULL);

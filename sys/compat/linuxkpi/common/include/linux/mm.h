@@ -251,19 +251,31 @@ vma_pages(struct vm_area_struct *vma)
 static inline void
 set_page_dirty(struct page *page)
 {
+#ifdef PAGE_IS_LKPI_PAGE
+	vm_page_dirty(page->vm_page);
+#else
 	vm_page_dirty(page);
+#endif
 }
 
 static inline void
 mark_page_accessed(struct page *page)
 {
+#ifdef PAGE_IS_LKPI_PAGE
+	vm_page_reference(page->vm_page);
+#else
 	vm_page_reference(page);
+#endif
 }
 
 static inline void
 get_page(struct page *page)
 {
+#ifdef PAGE_IS_LKPI_PAGE
+	vm_page_wire(page->vm_page);
+#else
 	vm_page_wire(page);
+#endif
 }
 
 extern long
@@ -310,7 +322,11 @@ pin_user_pages_remote(struct task_struct *task, struct mm_struct *mm,
 static inline void
 put_page(struct page *page)
 {
+#ifdef PAGE_IS_LKPI_PAGE
+	vm_page_unwire(page->vm_page, PQ_ACTIVE);
+#else
 	vm_page_unwire(page, PQ_ACTIVE);
+#endif
 }
 
 #define	unpin_user_page(page) put_page(page)
@@ -342,20 +358,31 @@ vmalloc_to_page(const void *addr)
 	vm_paddr_t paddr;
 
 	paddr = pmap_kextract((vm_offset_t)addr);
+#ifdef PAGE_IS_LKPI_PAGE
+	panic("XXX-BZ TODO: %jx", (uintmax_t)paddr);
+#else
 	return (PHYS_TO_VM_PAGE(paddr));
+#endif
 }
 
 static inline int
 trylock_page(struct page *page)
 {
+#ifdef PAGE_IS_LKPI_PAGE
+	return (vm_page_trylock(page->vm_page));
+#else
 	return (vm_page_trylock(page));
+#endif
 }
 
 static inline void
 unlock_page(struct page *page)
 {
-
+#ifdef PAGE_IS_LKPI_PAGE
+	vm_page_unlock(page->vm_page);
+#else
 	vm_page_unlock(page);
+#endif
 }
 
 extern int is_vmalloc_addr(const void *addr);

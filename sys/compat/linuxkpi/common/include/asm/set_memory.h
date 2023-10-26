@@ -76,19 +76,30 @@ set_pages_uc(struct page *page, int numpages)
 {
 	KASSERT(numpages == 1, ("%s: numpages %d", __func__, numpages));
 
+#ifdef PAGE_IS_LKPI_PAGE
+	pmap_page_set_memattr(page->vm_page, VM_MEMATTR_UNCACHEABLE);
+#else
 	pmap_page_set_memattr(page, VM_MEMATTR_UNCACHEABLE);
+#endif
 	return (0);
 }
 
 static inline int
 set_pages_wc(struct page *page, int numpages)
 {
+	vm_page_t	vmp;
+
 	KASSERT(numpages == 1, ("%s: numpages %d", __func__, numpages));
 
-#ifdef VM_MEMATTR_WRITE_COMBINING
-	pmap_page_set_memattr(page, VM_MEMATTR_WRITE_COMBINING);
+#ifdef PAGE_IS_LKPI_PAGE
+	vmp = page->vm_page;
 #else
-	return (set_pages_uc(page, numpages));
+	vmp = page;
+#endif
+#ifdef VM_MEMATTR_WRITE_COMBINING
+	pmap_page_set_memattr(vmp, VM_MEMATTR_WRITE_COMBINING);
+#else
+	return (set_pages_uc(vmp, numpages));
 #endif
 	return (0);
 }
@@ -98,7 +109,11 @@ set_pages_wb(struct page *page, int numpages)
 {
 	KASSERT(numpages == 1, ("%s: numpages %d", __func__, numpages));
 
+#ifdef PAGE_IS_LKPI_PAGE
+	pmap_page_set_memattr(page->vm_page, VM_MEMATTR_WRITE_BACK);
+#else
 	pmap_page_set_memattr(page, VM_MEMATTR_WRITE_BACK);
+#endif
 	return (0);
 }
 

@@ -1833,15 +1833,33 @@ iounmap(void *addr)
 void *
 vmap(struct page **pages, unsigned int count, unsigned long flags, int prot)
 {
+	struct vm_page **mpp;
 	vm_offset_t off;
 	size_t size;
+	int i;
+
+	mpp = malloc(sizeof(*mpp) * count, M_KMALLOC, M_NOWAIT|M_ZERO);
+	if (mpp == NULL)
+		return (NULL);
 
 	size = count * PAGE_SIZE;
 	off = kva_alloc(size);
-	if (off == 0)
+	if (off == 0) {
+		free(mpp, M_KMALLOC);
 		return (NULL);
+	}
+
+	for (i = 0; i < count; i++)
+#ifdef PAGE_IS_LKPI_PAGE
+		mpp[i] = pages[i]->vm_page;
+#else
+		mpp[i] = pages[i];
+#endif
+
 	vmmap_add((void *)off, size);
-	pmap_qenter(off, pages, count);
+	pmap_qenter(off, mpp, count);
+
+	free(mpp, M_KMALLOC);
 
 	return ((void *)off);
 }

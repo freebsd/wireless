@@ -63,7 +63,11 @@ kmap(struct page *page)
 		return ((void *)PHYS_TO_DMAP(page_to_phys(page)));
 	} else {
 		sched_pin();
+#ifdef PAGE_IS_LKPI_PAGE
+		sf = sf_buf_alloc(page->vm_page, SFB_NOWAIT | SFB_CPUPRIVATE);
+#else
 		sf = sf_buf_alloc(page, SFB_NOWAIT | SFB_CPUPRIVATE);
+#endif
 		if (sf == NULL) {
 			sched_unpin();
 			return (NULL);
@@ -78,9 +82,17 @@ kmap_atomic_prot(struct page *page, pgprot_t prot)
 	vm_memattr_t attr = pgprot2cachemode(prot);
 
 	if (attr != VM_MEMATTR_DEFAULT) {
+#ifdef PAGE_IS_LKPI_PAGE
+		vm_page_lock(page->vm_page);
+#else
 		vm_page_lock(page);
+#endif
 		page->flags |= PG_FICTITIOUS;
+#ifdef PAGE_IS_LKPI_PAGE
+		vm_page_unlock(page->vm_page);
+#else
 		vm_page_unlock(page);
+#endif
 		pmap_page_set_memattr(page, attr);
 	}
 	return (kmap(page));
@@ -107,7 +119,11 @@ kunmap(struct page *page)
 
 	if (!PMAP_HAS_DMAP) {
 		/* lookup SF buffer in list */
+#ifdef PAGE_IS_LKPI_PAGE
+		sf = sf_buf_alloc(page->vm_page, SFB_NOWAIT | SFB_CPUPRIVATE);
+#else
 		sf = sf_buf_alloc(page, SFB_NOWAIT | SFB_CPUPRIVATE);
+#endif
 
 		/* double-free */
 		sf_buf_free(sf);
