@@ -126,7 +126,7 @@ iwl_mei_tx_copy_to_csme(struct sk_buff *skb __unused, unsigned int ivlen __unuse
 static __inline int
 iwl_mei_register(void *mvm __unused, const struct iwl_mei_ops *ops __unused)
 {
-	return (0);
+	return (-ENOTSUP);
 }
 
 static __inline void

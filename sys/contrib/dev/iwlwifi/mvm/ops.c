@@ -1154,6 +1154,9 @@ static const struct iwl_mei_ops mei_ops = {
 	.sap_connected = iwl_mvm_mei_sap_connected,
 	.nic_stolen = iwl_mvm_mei_nic_stolen,
 };
+#else
+static const struct iwl_mei_ops mei_ops = {
+};
 #endif
 
 static struct iwl_op_mode *
@@ -1429,11 +1432,7 @@ iwl_op_mode_mvm_start(struct iwl_trans *trans, const struct iwl_cfg *cfg,
 
 	mvm->debugfs_dir = dbgfs_dir;
 
-#if IS_ENABLED(CONFIG_IWLMEI)
 	mvm->mei_registered = !iwl_mei_register(mvm, &mei_ops);
-#else
-	mvm->mei_registered = false;
-#endif
 
 	iwl_mvm_mei_scan_filter_init(&mvm->mei_scan_filter);
 

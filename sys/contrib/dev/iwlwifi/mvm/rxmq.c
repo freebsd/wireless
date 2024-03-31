@@ -749,6 +749,11 @@ static bool iwl_mvm_reorder(struct iwl_mvm *mvm,
 #if defined(__linux__)
 	u8 tid = ieee80211_get_tid(hdr);
 #elif defined(__FreeBSD__)
+	/*
+	 * We may pass a non-qos frame here and with more strict programming
+	 * this triggers an assert. I have not checked length checks in
+	 * callers but would assume that is fine.
+	 */
 	u8 tid;
 #endif
 	u8 sub_frame_idx = desc->amsdu_info &
@@ -797,13 +802,13 @@ static bool iwl_mvm_reorder(struct iwl_mvm *mvm,
 		return false;
 	}
 
-#if defined(__FreeBSD__)
-	tid = ieee80211_get_tid(hdr);
-#endif
 	rcu_read_lock();
 	sta_mask = iwl_mvm_sta_fw_id_mask(mvm, sta, -1);
 	rcu_read_unlock();
 
+#if defined(__FreeBSD__)
+	tid = ieee80211_get_tid(hdr);
+#endif
 	if (IWL_FW_CHECK(mvm,
 			 tid != baid_data->tid ||
 			 !(sta_mask & baid_data->sta_mask),
