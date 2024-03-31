@@ -83,6 +83,7 @@ enum mcast_filter_flags {
 	FIF_OTHER_BSS			= BIT(4),
 	FIF_PSPOLL			= BIT(5),
 	FIF_CONTROL			= BIT(6),
+	FIF_MCAST_ACTION		= BIT(7),
 };
 
 enum ieee80211_bss_changed {
@@ -117,6 +118,7 @@ enum ieee80211_bss_changed {
 	BSS_CHANGED_TWT			= BIT(28),
 	BSS_CHANGED_UNSOL_BCAST_PROBE_RESP = BIT(30),
 	BSS_CHANGED_EHT_PUNCTURING	= BIT(31),
+	BSS_CHANGED_MLD_VALID_LINKS	= BIT_ULL(32),
 };
 
 /* 802.11 Figure 9-256 Suite selector format. [OUI(3), SUITE TYPE(1)] */
@@ -444,6 +446,7 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_SUPPORTS_TX_ENCAP_OFFLOAD,
 	IEEE80211_HW_SUPPORTS_RC_TABLE,
 	IEEE80211_HW_DETECTS_COLOR_COLLISION,
+	IEEE80211_HW_DISALLOW_PUNCTURING,
 
 	/* Keep last. */
 	NUM_IEEE80211_HW_FLAGS
@@ -569,6 +572,7 @@ enum ieee80211_rx_status_flags {
 	RX_FLAG_SKIP_MONITOR		= BIT(26),
 	RX_FLAG_8023			= BIT(27),
 	RX_FLAG_RADIOTAP_TLV_AT_END	= BIT(28),
+	RX_FLAG_MACTIME			= BIT(29),
 };
 
 enum mac80211_rx_encoding {
@@ -678,7 +682,7 @@ struct ieee80211_link_sta {
 	struct ieee80211_sta_ht_cap		ht_cap;
 	struct ieee80211_sta_vht_cap		vht_cap;
 	struct ieee80211_sta_he_cap		he_cap;
-	struct ieee80211_sta_he_6ghz_capa	he_6ghz_capa;
+	struct ieee80211_he_6ghz_capa		he_6ghz_capa;
 	struct ieee80211_sta_eht_cap		eht_cap;
 	uint8_t					rx_nss;
 	enum ieee80211_sta_rx_bw		bandwidth;
@@ -742,7 +746,8 @@ enum ieee80211_vif_driver_flags {
 	IEEE80211_VIF_BEACON_FILTER		= BIT(0),
 	IEEE80211_VIF_SUPPORTS_CQM_RSSI		= BIT(1),
 	IEEE80211_VIF_SUPPORTS_UAPSD		= BIT(2),
-	IEEE80211_VIF_DISABLE_SMPS_OVERRIDE	= BIT(3),
+	/* was IEEE80211_VIF_DISABLE_SMPS_OVERRIDE = BIT(3), */
+	IEEE80211_VIF_EML_ACTIVE		= BIT(4),
 };
 
 #define	IEEE80211_BSS_ARP_ADDR_LIST_LEN		4
@@ -797,8 +802,9 @@ struct ieee80211_vif_chanctx_switch {
 };
 
 struct ieee80211_prep_tx_info {
-	u16				duration;
+	uint16_t			duration;
 	bool				success;
+	int				link_id;
 };
 
 /* XXX-BZ too big, over-reduce size to u8, and array sizes to minuimum to fit in skb->cb. */
@@ -813,6 +819,7 @@ struct ieee80211_tx_info {
 		struct {
 			struct ieee80211_tx_rate	rates[4];
 			bool				use_rts;
+			uint8_t				antennas:2;
 			struct ieee80211_vif		*vif;
 			struct ieee80211_key_conf	*hw_key;
 			enum ieee80211_tx_control_flags	flags;
@@ -934,7 +941,7 @@ struct ieee80211_ops {
 
 	void (*mgd_prepare_tx)(struct ieee80211_hw *, struct ieee80211_vif *, struct ieee80211_prep_tx_info *);
 	void (*mgd_complete_tx)(struct ieee80211_hw *, struct ieee80211_vif *, struct ieee80211_prep_tx_info *);
-	void (*mgd_protect_tdls_discover)(struct ieee80211_hw *, struct ieee80211_vif *);
+	void (*mgd_protect_tdls_discover)(struct ieee80211_hw *, struct ieee80211_vif *, uint32_t);
 
 	void (*flush)(struct ieee80211_hw *, struct ieee80211_vif *, u32, bool);
 	void (*flush_sta)(struct ieee80211_hw *, struct ieee80211_vif *, struct ieee80211_sta *);
@@ -965,7 +972,7 @@ struct ieee80211_ops {
 	bool (*can_aggregate_in_amsdu)(struct ieee80211_hw *, struct sk_buff *, struct sk_buff *);
 
 	int  (*pre_channel_switch)(struct ieee80211_hw *, struct ieee80211_vif *, struct ieee80211_channel_switch *);
-	int  (*post_channel_switch)(struct ieee80211_hw *, struct ieee80211_vif *);
+	int  (*post_channel_switch)(struct ieee80211_hw *, struct ieee80211_vif *, struct ieee80211_bss_conf *);
 	void (*channel_switch)(struct ieee80211_hw *, struct ieee80211_vif *, struct ieee80211_channel_switch *);
 	void (*channel_switch_beacon)(struct ieee80211_hw *, struct ieee80211_vif *, struct cfg80211_chan_def *);
 	void (*abort_channel_switch)(struct ieee80211_hw *, struct ieee80211_vif *);
@@ -1841,7 +1848,7 @@ ieee80211_beacon_loss(struct ieee80211_vif *vif)
 }
 
 static __inline void
-ieee80211_chswitch_done(struct ieee80211_vif *vif, bool t)
+ieee80211_chswitch_done(struct ieee80211_vif *vif, bool t, uint32_t link_id)
 {
 	TODO();
 }
@@ -2378,7 +2385,7 @@ ieee80211_queue_work(struct ieee80211_hw *hw, struct work_struct *w)
 }
 
 static __inline void
-ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
+ieee80211_tx_status_skb(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
 
 	linuxkpi_ieee80211_tx_status(hw, skb);
@@ -2388,14 +2395,14 @@ static __inline void
 ieee80211_tx_status_irqsafe(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
 	IMPROVE();
-	ieee80211_tx_status(hw, skb);
+	ieee80211_tx_status_skb(hw, skb);
 }
 
 static __inline void
 ieee80211_tx_status_ni(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
 	IMPROVE();
-	ieee80211_tx_status(hw, skb);
+	ieee80211_tx_status_skb(hw, skb);
 }
 
 static __inline void
@@ -2710,6 +2717,20 @@ ieee80211_get_eht_iftype_cap_vif(const struct ieee80211_supported_band *band,
 {
 	TODO();
 	return (NULL);
+}
+
+static inline uint32_t
+ieee80211_vif_usable_links(const struct ieee80211_vif *vif)
+{
+	TODO();
+        return (1);
+}
+
+static inline void
+ieee80211_set_active_links_async(struct ieee80211_vif *vif,
+    uint32_t new_active_links)
+{
+	TODO();
 }
 
 #define	ieee80211_send_bar(_v, _r, _t, _s)				\

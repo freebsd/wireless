@@ -894,14 +894,14 @@ lkpi_update_dtim_tsf(struct ieee80211_vif *vif, struct ieee80211_node *ni,
 	if (linuxkpi_debug_80211 & D80211_TRACE)
 		printf("%s:%d [%s:%d] assoc %d aid %d beacon_int %u "
 		    "dtim_period %u sync_dtim_count %u sync_tsf %ju "
-		    "sync_device_ts %u bss_changed %#08x\n",
+		    "sync_device_ts %u bss_changed %#010jx\n",
 			__func__, __LINE__, _f, _l,
 			vif->cfg.assoc, vif->cfg.aid,
 			vif->bss_conf.beacon_int, vif->bss_conf.dtim_period,
 			vif->bss_conf.sync_dtim_count,
 			(uintmax_t)vif->bss_conf.sync_tsf,
 			vif->bss_conf.sync_device_ts,
-			bss_changed);
+			(uintmax_t)bss_changed);
 #endif
 
 	if (vif->bss_conf.beacon_int != ni->ni_intval) {
@@ -925,14 +925,14 @@ lkpi_update_dtim_tsf(struct ieee80211_vif *vif, struct ieee80211_node *ni,
 	if (linuxkpi_debug_80211 & D80211_TRACE)
 		printf("%s:%d [%s:%d] assoc %d aid %d beacon_int %u "
 		    "dtim_period %u sync_dtim_count %u sync_tsf %ju "
-		    "sync_device_ts %u bss_changed %#08x\n",
+		    "sync_device_ts %u bss_changed %#010jx\n",
 			__func__, __LINE__, _f, _l,
 			vif->cfg.assoc, vif->cfg.aid,
 			vif->bss_conf.beacon_int, vif->bss_conf.dtim_period,
 			vif->bss_conf.sync_dtim_count,
 			(uintmax_t)vif->bss_conf.sync_tsf,
 			vif->bss_conf.sync_device_ts,
-			bss_changed);
+			(uintmax_t)bss_changed);
 #endif
 
 	return (bss_changed);

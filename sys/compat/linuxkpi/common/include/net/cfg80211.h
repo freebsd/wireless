@@ -381,6 +381,7 @@ struct cfg80211_scan_request {
 	int	duration, duration_mandatory, flags;
 	bool					no_cck;
 	bool					scan_6ghz;
+	int8_t					tsf_report_link_id;
 	struct wireless_dev			*wdev;
 	struct wiphy				*wiphy;
 	int					ie_len;
@@ -648,13 +649,6 @@ struct linuxkpi_ieee80211_regdomain {
 #define	IEEE80211_HE_MCS_SUPPORT_0_9			0x2
 #define	IEEE80211_HE_MCS_SUPPORT_0_11			0x4
 
-#define	IEEE80211_HE_6GHZ_CAP_TX_ANTPAT_CONS		0x01
-#define	IEEE80211_HE_6GHZ_CAP_RX_ANTPAT_CONS		0x02
-#define	IEEE80211_HE_6GHZ_CAP_MIN_MPDU_START		0x04
-#define	IEEE80211_HE_6GHZ_CAP_MAX_MPDU_LEN		0x08
-#define	IEEE80211_HE_6GHZ_CAP_MAX_AMPDU_LEN_EXP		0x10
-#define	IEEE80211_HE_6GHZ_CAP_SM_PS			0x20
-
 #define	IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_160MHZ_IN_5G		0x1
 #define	IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G	0x2
 #define	IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_IN_2G		0x4
@@ -774,6 +768,7 @@ struct linuxkpi_ieee80211_regdomain {
 #define	IEEE80211_EHT_MAC_CAP0_TRIG_TXOP_SHARING_MODE1		0x05
 #define	IEEE80211_EHT_MAC_CAP0_TRIG_TXOP_SHARING_MODE2		0x06
 #define	IEEE80211_EHT_MAC_CAP0_MAX_MPDU_LEN_7991		0x07
+#define	IEEE80211_EHT_MAC_CAP0_SCS_TRAFFIC_DESC			0x08
 
 #define	IEEE80211_EHT_MAC_CAP1_MAX_AMPDU_LEN_MASK		0x01
 
@@ -809,6 +804,7 @@ struct linuxkpi_ieee80211_regdomain {
 #define	IEEE80211_EHT_PHY_CAP4_PART_BW_DL_MU_MIMO		0x02
 #define	IEEE80211_EHT_PHY_CAP4_POWER_BOOST_FACT_SUPP		0x03
 #define	IEEE80211_EHT_PHY_CAP4_MAX_NC_MASK			0x04
+#define	IEEE80211_EHT_PHY_CAP4_PSR_SR_SUPP			0x08
 
 #define	IEEE80211_EHT_PHY_CAP5_COMMON_NOMINAL_PKT_PAD_0US	0x01
 #define	IEEE80211_EHT_PHY_CAP5_COMMON_NOMINAL_PKT_PAD_16US	0x02
@@ -889,22 +885,37 @@ struct ieee80211_he_obss_pd {
 	uint8_t					partial_bssid_bitmap[8];
 };
 
-struct ieee80211_sta_he_6ghz_capa {
-	/* TODO FIXME */
-	int	capa;
-};
+struct ieee80211_he_6ghz_capa {
+	uint16_t				capa;
+#define	IEEE80211_HE_6GHZ_CAP_MIN_MPDU_START		0x0001
+#define	IEEE80211_HE_6GHZ_CAP_MAX_AMPDU_LEN_EXP		0x0002
+#define	IEEE80211_HE_6GHZ_CAP_MAX_MPDU_LEN		0x0004
+#define	IEEE80211_HE_6GHZ_CAP_SM_PS			0x0008
+#define	IEEE80211_HE_6GHZ_CAP_RX_ANTPAT_CONS		0x0010
+#define	IEEE80211_HE_6GHZ_CAP_TX_ANTPAT_CONS		0x0020
+} __packed;
 
 struct ieee80211_eht_mcs_nss_supp_20mhz_only {
-	uint8_t					rx_tx_mcs7_max_nss;
-	uint8_t					rx_tx_mcs9_max_nss;
-	uint8_t					rx_tx_mcs11_max_nss;
-	uint8_t					rx_tx_mcs13_max_nss;
+	union {
+		struct {
+			uint8_t				rx_tx_mcs7_max_nss;
+			uint8_t				rx_tx_mcs9_max_nss;
+			uint8_t				rx_tx_mcs11_max_nss;
+			uint8_t				rx_tx_mcs13_max_nss;
+		};
+		uint8_t					rx_tx_max_nss[4];
+	};
 };
 
 struct ieee80211_eht_mcs_nss_supp_bw {
-	uint8_t					rx_tx_mcs9_max_nss;
-	uint8_t					rx_tx_mcs11_max_nss;
-	uint8_t					rx_tx_mcs13_max_nss;
+	union {
+		struct {
+			uint8_t				rx_tx_mcs9_max_nss;
+			uint8_t				rx_tx_mcs11_max_nss;
+			uint8_t				rx_tx_mcs13_max_nss;
+		};
+		uint8_t					rx_tx_max_nss[3];
+	};
 };
 
 struct ieee80211_eht_cap_elem_fixed {
@@ -937,7 +948,7 @@ struct ieee80211_sband_iftype_data {
 	/* TODO FIXME */
 	enum nl80211_iftype			types_mask;
 	struct ieee80211_sta_he_cap		he_cap;
-	struct ieee80211_sta_he_6ghz_capa	he_6ghz_capa;
+	struct ieee80211_he_6ghz_capa		he_6ghz_capa;
 	struct ieee80211_sta_eht_cap		eht_cap;
 	struct {
 		const uint8_t			*data;
@@ -1654,11 +1665,16 @@ wiphy_read_of_freq_limits(struct wiphy *wiphy)
 #endif
 }
 
-static __inline void
+static inline void
 wiphy_ext_feature_set(struct wiphy *wiphy, enum nl80211_ext_feature ef)
 {
-
 	set_bit(ef, wiphy->ext_features);
+}
+
+static inline bool
+wiphy_ext_feature_isset(struct wiphy *wiphy, enum nl80211_ext_feature ef)
+{
+	return (test_bit(ef, wiphy->ext_features));
 }
 
 static __inline void *
@@ -1984,12 +2000,80 @@ cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	return (false);
 }
 
+static __inline bool
+cfg80211_chandef_dfs_usable(struct wiphy *wiphy, const struct cfg80211_chan_def *chandef)
+{
+	TODO();
+	return (false);
+}
+
+static __inline unsigned int
+cfg80211_chandef_dfs_cac_time(struct wiphy *wiphy, const struct cfg80211_chan_def *chandef)
+{
+	TODO();
+	return (0);
+}
+
+static inline void
+_ieee80211_set_sband_iftype_data(struct ieee80211_supported_band *band,
+    struct ieee80211_sband_iftype_data *iftype_data, size_t nitems)
+{
+	band->iftype_data = iftype_data;
+	band->n_iftype_data = nitems;
+}
+
+static inline const struct ieee80211_sband_iftype_data *
+ieee80211_get_sband_iftype_data(const struct ieee80211_supported_band *band,
+    enum nl80211_iftype iftype)
+{
+	const struct ieee80211_sband_iftype_data *iftype_data;
+	int i;
+
+	for (i = 0; i < band->n_iftype_data; i++) {
+		iftype_data = (const void *)&band->iftype_data[i];
+		if (iftype_data->types_mask & BIT(iftype))
+			return (iftype_data);
+	}
+
+	return (NULL);
+}
+
 static __inline const struct ieee80211_sta_eht_cap *
 ieee80211_get_eht_iftype_cap(const struct ieee80211_supported_band *band,
     enum nl80211_iftype iftype)
 {
 	TODO();
 	return (NULL);
+}
+
+static inline uint16_t
+ieee80211_get_he_6ghz_capa(const struct ieee80211_supported_band *band,
+    enum nl80211_iftype iftype)
+{
+	const struct ieee80211_sband_iftype_data *data =
+	    ieee80211_get_sband_iftype_data(band, iftype);
+
+	/* Should we KASSERT this? */
+	if (data == NULL || data->he_cap.has_he == false)
+		return (0);
+
+	return (data->he_6ghz_capa.capa);
+}
+
+static inline bool
+cfg80211_ssid_eq(struct cfg80211_ssid *ssid1, struct cfg80211_ssid *ssid2)
+{
+	int error;
+
+	if (ssid1 == NULL || ssid2 == NULL)	/* Can we KASSERT this? */
+		return (false);
+
+	if (ssid1->ssid_len != ssid2->ssid_len)
+		return (false);
+	error = memcmp(ssid1->ssid, ssid2->ssid, ssid2->ssid_len);
+	if (error != 0)
+		return (false);
+	return (true);
 }
 
 #define	wiphy_info(wiphy, fmt, ...)					\
