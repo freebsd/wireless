@@ -67,4 +67,6 @@ void trace_iwlwifi_dev_rx_data(const struct device *,
 #define	trace_iwlwifi_info(...)
 #define	trace_iwlwifi_warn(...)
 
+#define	maybe_trace_iwlwifi_dev_rx(...)
+
 #endif /* _IWL_DEVTRACE_H */
