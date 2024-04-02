@@ -20,6 +20,9 @@ SRCS+=	rtw8852b.c rtw8852b_rfk.c rtw8852b_rfk_table.c rtw8852b_table.c
 SRCS+=	rtw8852be.c
 SRCS+=	acpi.c cam.c efuse.c regd.c sar.c coex.c ps.c ser.c
 
+#SRCS+=	efuse_be.c mac_be.c pci_be.c phy_be.c
+#SRCS+=	rtw8922a.c rtw8922ae.c
+
 # CONFIG_RTW89_DEBUG (always on for now)
 SRCS+=	debug.c
 
