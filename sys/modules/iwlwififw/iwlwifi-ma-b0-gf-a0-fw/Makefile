@@ -1,5 +1,5 @@
 
 FWVERSION=	86
-NAME=		gl-c0-fm-c0
+NAME=		ma-b0-gf-a0
 
 .include <bsd.kmod.mk>
