@@ -996,6 +996,9 @@ enum wiphy_wowlan_support_flags {
 	WIPHY_WOWLAN_MAGIC_PKT,
 	WIPHY_WOWLAN_SUPPORTS_GTK_REKEY,
 	WIPHY_WOWLAN_NET_DETECT,
+	WIPHY_WOWLAN_EAP_IDENTITY_REQ,
+	WIPHY_WOWLAN_RFKILL_RELEASE,
+	WIPHY_WOWLAN_4WAY_HANDSHAKE,
 };
 
 struct wiphy_wowlan_support {
@@ -1190,7 +1193,7 @@ struct wiphy {
 
 	unsigned long				ext_features[BITS_TO_LONGS(NUM_NL80211_EXT_FEATURES)];
 	struct dentry				*debugfsdir;
-	struct cfg80211_wowlan_support		*wowlan;
+	struct wiphy_wowlan_support		*wowlan;
 	/* Lower layer (driver/mac80211) specific data. */
 	/* Must stay last. */
 	uint8_t					priv[0] __aligned(CACHE_LINE_SIZE);
