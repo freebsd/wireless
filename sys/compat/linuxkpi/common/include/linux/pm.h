@@ -58,25 +58,26 @@ struct dev_pm_info {
     IS_ENABLED(CONFIG_PM_SLEEP) ? (_p) : NULL
 
 #ifdef CONFIG_PM_SLEEP
+#define	__SET_PM_OPS(_suspendfunc, _resumefunc)			\
+	.suspend	= _suspendfunc,				\
+	.resume		= _resumefunc,				\
+	.freeze		= _suspendfunc,				\
+	.thaw		= _resumefunc,				\
+	.poweroff	= _suspendfunc,				\
+	.restore	= _resumefunc,				\
+
 #define	SIMPLE_DEV_PM_OPS(_name, _suspendfunc, _resumefunc)	\
 const struct dev_pm_ops _name = {				\
-	.suspend	= _suspendfunc,		\
-	.resume		= _resumefunc,		\
-	.freeze		= _suspendfunc,		\
-	.thaw		= _resumefunc,		\
-	.poweroff	= _suspendfunc,		\
-	.restore	= _resumefunc,		\
+	__SET_PM_OPS(_suspendfunc, _resumefunc)			\
 }
 
 #define	DEFINE_SIMPLE_DEV_PM_OPS(_name, _suspendfunc, _resumefunc) \
 const struct dev_pm_ops _name = {				\
-	.suspend	= _suspendfunc,		\
-	.resume		= _resumefunc,		\
-	.freeze		= _suspendfunc,		\
-	.thaw		= _resumefunc,		\
-	.poweroff	= _suspendfunc,		\
-	.restore	= _resumefunc,		\
+	__SET_PM_OPS(_suspendfunc, _resumefunc)			\
 }
+
+#define	SET_SYSTEM_SLEEP_PM_OPS(_suspendfunc, _resumefunc)	\
+	__SET_PM_OPS(_suspendfunc, _resumefunc)
 #else
 #define	SIMPLE_DEV_PM_OPS(_name, _suspendfunc, _resumefunc)	\
 const struct dev_pm_ops _name = {				\
@@ -91,6 +92,13 @@ pm_wakeup_event(struct device *dev __unused, unsigned int x __unused)
 {
 
 	pr_debug("%s: TODO\n", __func__);
+}
+
+static inline bool
+device_can_wakeup(struct device *dev)
+{
+	pr_debug("%s: TODO\n", __func__);
+	return (false);
 }
 
 #endif	/* _LINUXKPI_LINUX_PM_H */
