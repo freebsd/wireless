@@ -55,6 +55,10 @@ SUBDIR=	\
 	ath_hal_ar9300 \
 	ath_main \
 	ath_rate \
+	${_ath10k} \
+	${_ath11k} \
+	${_ath12k} \
+	${_athk_common} \
 	${_autofs} \
 	axgbe \
 	backlight \
@@ -343,6 +347,7 @@ SUBDIR=	\
 	${_rockchip} \
 	rtsx \
 	${_rtw88} \
+	${_rtw89} \
 	rtwn \
 	rtwn_pci \
 	rtwn_usb \
@@ -563,13 +568,22 @@ _mlx5ib=	mlx5ib
 
 .if ${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "amd64" || \
     ${MACHINE_CPUARCH} == "i386"
+_ath10k=	ath10k
+_ath11k=	ath11k
+_ath12k=	ath12k
+_athk_common=	athk_common
 _ena=		ena
 _gve=		gve
 _iwlwifi=	iwlwifi
+_iwm=		iwm
+_iwn=		iwn
 .if ${MK_SOURCELESS_UCODE} != "no"
 _iwlwififw=	iwlwififw
+_iwmfw=		iwmfw
+_iwnfw=		iwnfw
 .endif
 _rtw88=		rtw88
+_rtw89=		rtw89
 _vmware=	vmware
 .endif
 
@@ -793,13 +807,9 @@ _ips=		ips
 _isci=		isci
 _ipw=		ipw
 _iwi=		iwi
-_iwm=		iwm
-_iwn=		iwn
 .if ${MK_SOURCELESS_UCODE} != "no"
 _ipwfw=		ipwfw
 _iwifw=		iwifw
-_iwmfw=		iwmfw
-_iwnfw=		iwnfw
 .endif
 _nfe=		nfe
 _nvram=		nvram
