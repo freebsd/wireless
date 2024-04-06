@@ -1522,7 +1522,9 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 	size_t trigger_tlv_sz[FW_DBG_TRIGGER_MAX];
 	u32 api_ver;
 	int i;
+#if defined(__linux__)
 	bool load_module = false;
+#endif
 	bool usniffer_images = false;
 	bool failure = true;
 
@@ -1769,8 +1771,10 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 			mutex_unlock(&iwlwifi_opmode_table_mtx);
 			goto out_unbind;
 		}
+#if defined(__linux__)
 	} else {
 		load_module = true;
+#endif
 	}
 	mutex_unlock(&iwlwifi_opmode_table_mtx);
 
@@ -1781,8 +1785,17 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 	 * else from proceeding if the module fails to load
 	 * or hangs loading.
 	 */
+#if defined(__linux__)
 	if (load_module)
 		request_module("%s", op->name);
+#elif defined(__FreeBSD__)
+	/*
+	 * On FreeBSD iwmvm is part of the same .ko and
+	 * will be loaded automatically.
+	 * Calling kern_kldload from kldload will do us
+	 * no good.
+	 */
+#endif
 	failure = false;
 	goto free;
 
