@@ -22,9 +22,6 @@
 #include <linux/if_ether.h>
 #include <linux/spinlock.h>
 #include <net/mac80211.h>
-#if defined(__FreeBSD__)
-#include <linux/stddef.h>
-#endif
 
 /*
  * The key cache is used for h/w cipher state and also for
