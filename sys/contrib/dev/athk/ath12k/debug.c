@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 /*
  * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/vmalloc.h>
@@ -96,7 +96,7 @@ void __ath12k_dbg(struct ath12k_base *ab, enum ath12k_debug_mask mask,
 
 	if (ath12k_debug_mask & mask)
 #if defined(__linux__)
-		dev_dbg(ab->dev, "%pV", &vaf);
+		dev_printk(KERN_DEBUG, ab->dev, "%pV", &vaf);
 #elif defined(__FreeBSD__)
 	{
 		char *str;
