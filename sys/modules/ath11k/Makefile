@@ -13,7 +13,7 @@ SRCS+=	wmi.c mac.c reg.c htc.c qmi.c
 SRCS+=	dp.c dp_tx.c dp_rx.c debug.c
 SRCS+=	ce.c peer.c dbring.c hw.c
 
-SRCS+=	mhi.c pci.c pcic.c
+SRCS+=	mhi.c pci.c pcic.c fw.c
 
 .if defined(WITH_CONFIG_PM) && ${WITH_CONFIG_PM} > 0
 CFLAGS+=	-DCONFIG_PM=${WITH_CONFIG_PM}
