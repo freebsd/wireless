@@ -19,7 +19,11 @@ static int ath10k_swap_code_seg_fill(struct ath10k *ar,
 	u8 *virt_addr = seg_info->virt_address[0];
 	u8 swap_magic[ATH10K_SWAP_CODE_SEG_MAGIC_BYTES_SZ] = {};
 	const u8 *fw_data = data;
+#if defined(__linux__)
+	union ath10k_swap_code_seg_item *swap_item;
+#elif defined(__FreeBSD__)
 	const union ath10k_swap_code_seg_item *swap_item;
+#endif
 	u32 length = 0;
 	u32 payload_len;
 	u32 total_payload_len = 0;
@@ -31,7 +35,11 @@ static int ath10k_swap_code_seg_fill(struct ath10k *ar,
 	 */
 	seg_info->target_addr = -1;
 	while (size_left >= sizeof(*swap_item)) {
+#if defined(__linux__)
+		swap_item = (union ath10k_swap_code_seg_item *)fw_data;
+#elif defined(__FreeBSD__)
 		swap_item = (const union ath10k_swap_code_seg_item *)fw_data;
+#endif
 		payload_len = __le32_to_cpu(swap_item->tlv.length);
 		if ((payload_len > size_left) ||
 		    (payload_len == 0 &&
