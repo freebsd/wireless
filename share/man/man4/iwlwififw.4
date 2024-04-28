@@ -1,5 +1,5 @@
 .\"-
-.\" Copyright (c) 2021-2023 The FreeBSD Foundation
+.\" Copyright (c) 2021-2024 The FreeBSD Foundation
 .\"
 .\" This documentation was written by Bj\xc3\xb6rn Zeeb under sponsorship from
 .\" the FreeBSD Foundation.
@@ -25,7 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd September 21, 2023
+.Dd April 27, 2024
 .Dt iwlwififw 4
 .Os
 .Sh NAME
@@ -43,11 +43,16 @@ models supported by the
 .Xr iwlwifi 4
 driver.
 .Pp
+One can use
+.Xr fwget 8
+to install the correct firmware package.
+.Pp
 .Bl -column -compact "Vendor" "Device" "Subv. " "Subd. " "Firmware-Prefix"
 .It Ar Name
 .It Ar Vendor Ta Ar Device Ta Ar Subv. Ta Ar Subd. Ta Ar Firmware-Prefix
 .% ---------------------------------------------------------------------
-.% This list is manually generated from a sysctl and post-processing.
+.% This list is manually generated from a sysctl and post-processing
+.% by sys/contrib/dev/iwlwifi/zzz_fw_ports_fwget.sh generating the list.
 .% Edits will be overwritten on next update.
 .% ---------------------------------------------------------------------
 .It ""
@@ -1350,10 +1355,14 @@ in the above listing).
 .Sh FILES
 A copy of the
 .Xr iwlwifi 4
-firmware license is installed at
-.Em /usr/share/doc/legal/intel_iwlwifi_firmware.LICENCE .
+firmware license is installed along with the
+.Pa wifi-firmware-iwlwifi-kmod
+package or the
+.Pa ports/net/wifi-firmware-iwlwifi-kmod
+port (or each of its flavors).
 .Sh SEE ALSO
 .Xr iwlwifi 4 ,
+.Xr fwget 8 ,
 .Xr firmware 9
 .Sh HISTORY
 The
